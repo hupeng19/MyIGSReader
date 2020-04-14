@@ -30,6 +30,12 @@ implementation
       Ent.States := StatusNumber;
     end;
   end;
+
+  //字符串转换成DE段
+  function GetDE(s: string): Integer;
+  begin
+    Result := (StrToInt(S) - 1) div 2;
+  end;
   {$ENDREGION}
 
   {$REGION '100'}
@@ -340,6 +346,65 @@ implementation
   end;
   {$ENDREGION}
 
+  {$REGION '141'}
+  function ReadBoundaryEntity(ft: TIGSFile; Index: Integer;
+    Reader: TIGSEntityReader): TBaseEntity;
+  var
+    ParamValue: TList<string>;
+    E: TBoundaryEntity;
+    K, C, I, J, M, Sum: Integer;
+    Curve: TBaseEntity;
+    List: TList<TBaseEntity>;
+  begin
+    ParamValue := TList<string>.Create;
+    GetParamValue(ParamValue, ft, Index);
+    Result := nil;
+    if (ParamValue.Count > 3) and (ParamValue[0] = '141') then
+    begin
+      E := TBoundaryEntity.Create;
+      FillDirData(ft, index, E);
+      E.SurfaceType := StrToInt(ParamValue[1]);
+      E.PreferRep := StrToInt(ParamValue[2]);
+      K := GetDE(ParamValue[3]);
+      E.UntrimmedSurface := Reader.GetEntity(K);
+      C := StrToInt(ParamValue[4]);
+      Sum := 5;
+      for I := 0 to C - 1 do
+      begin
+        K := GetDE(ParamValue[Sum]);
+        Curve := Reader.GetEntity(K);
+        E.ModelSpaceCurves.Add(Curve);
+        K := StrToInt(ParamValue[Sum + 1]);
+        E.OrientationFlags.Add(K);
+        K := StrToInt(ParamValue[Sum + 2]);
+        Sum := Sum + 3;
+        if (E.SurfaceType = 0) and (K <> 0) then
+        begin
+          E.Free;
+          E := nil;
+          OutputDebugString(PChar(Format('类型：%d，参数段：%d，参数错误', [141, index])));
+          Break;
+        end
+        else
+        begin
+          List := TList<TBaseEntity>.Create;
+          E.APSCurves.Add(List);
+          for J := 0 to K - 1 do
+          begin
+            M := GetDE(ParamValue[Sum + J]);
+            Curve := Reader.GetEntity(M);
+            List.Add(Curve);
+          end;
+          Sum := Sum + K;
+        end;
+      end;
+
+      Result := E;
+    end;
+    ParamValue.Free;
+  end;
+  {$ENDREGION}
+
   {$REGION '142'}
   function ReadParametricSurfaceCurveEntity(ft: TIGSFile; Index: Integer;
     Reader: TIGSEntityReader): TBaseEntity;
@@ -365,6 +430,47 @@ implementation
       E.CurveC := Reader.GetEntity(K);
       E.PreRepInSendingSys := StrToInt(ParamValue[5]);
 
+      Result := E;
+    end;
+    ParamValue.Free;
+  end;
+  {$ENDREGION}
+
+  {$REGION '143'}
+  function ReadBoundedSurfaceEntity(ft: TIGSFile; Index: Integer;
+    Reader: TIGSEntityReader): TBaseEntity;
+  var
+    E: TBoundedSurfaceEntity;
+    ParamValue: TList<string>;
+    K, I, J: Integer;
+    Boundary: TBaseEntity;
+  begin
+    ParamValue := TList<string>.Create;
+    GetParamValue(ParamValue, ft, Index);
+    Result := nil;
+    if (ParamValue.Count > 3) and (ParamValue[0] = '143') then
+    begin
+      E := TBoundedSurfaceEntity.Create;
+      E.SurfaceType := StrToInt(ParamValue[1]);
+      K := GetDE(ParamValue[2]);
+      E.UntrimmedSurface := Reader.GetEntity(K);
+      K := StrToInt(ParamValue[3]);
+      for I := 0 to K - 1 do
+      begin
+        J := GetDE(ParamValue[I + 4]);
+        Boundary := Reader.GetEntity(J);
+        if Boundary is TBoundaryEntity then
+        begin
+          E.Boundaries.Add(Boundary as TBoundaryEntity);
+        end
+        else
+        begin
+          OutputDebugString('边界曲面中参数不正确');
+          E.Free;
+          E := nil;
+          Break;
+        end;
+      end;
       Result := E;
     end;
     ParamValue.Free;
@@ -433,6 +539,27 @@ implementation
   end;
   {$ENDREGION}
 
+  {$REGION '406'}
+  function ReadPropertyEntity(ft: TIGSFile; Index: Integer;
+    Reader: TIGSEntityReader): TBaseEntity;
+  var
+    ParamValue: TList<string>;
+    E: TPropertyEntity;
+  begin
+    ParamValue := TList<string>.Create;
+    GetParamValue(ParamValue, ft, Index);
+    if (ParamValue.Count > 3) and (ParamValue[0] = '406') then
+    begin
+      e := TPropertyEntity.Create;
+
+      Result := E;
+    end
+    else
+      Result := nil;
+    ParamValue.Free;
+  end;
+  {$ENDREGION}
+
 initialization
 
   RegistEntityReadFun(100, ReadCircularArcEntity);
@@ -442,7 +569,10 @@ initialization
   RegistEntityReadFun(124, ReadTransformationMatrixEntity);
   RegistEntityReadFun(126, ReadRationalBSplineCurveEntity);
   RegistEntityReadFun(128, ReadRationalBSplineSurfaceEntity);
+  RegistEntityReadFun(141, ReadBoundaryEntity);
   RegistEntityReadFun(142, ReadParametricSurfaceCurveEntity);
+  RegistEntityReadFun(143, ReadBoundedSurfaceEntity);
   RegistEntityReadFun(144, ReadTrimmedSurfaceEntity);
   RegistEntityReadFun(314, ReadColorDefEntity);
+  RegistEntityReadFun(406, ReadPropertyEntity);
 end.

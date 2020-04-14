@@ -1,3 +1,4 @@
+{本文件仅定义一些基本的实体类型，不涉及运算、变换和读写文件}
 unit uIGSEntityile;
 
 interface
@@ -164,6 +165,28 @@ type
   end;
   {$ENDREGION}
 
+  {$REGION '141'}
+  TBoundaryEntity = class(TBaseEntity)
+  private
+    FSurfaceType: Integer; //0:
+    FPreferRep: Integer;
+    FUntrimmedSurface: TBaseEntity;
+    FModelSpaceCurves: TList<TBaseEntity>; //边界实体的模型空间曲线
+    FOrientationFlags: TList<Integer>; //参数空间曲线是否和模型空间曲线方向一致，是否在使用到边界中进行反向
+    FAPSCurves: TList<TList<TBaseEntity>>; //和空间曲线相关联的参数空间曲线
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    property SurfaceType: Integer read FSurfaceType write FSurfaceType;
+    property PreferRep: Integer read FPreferRep write FPreferRep;
+    property UntrimmedSurface: TBaseEntity read FUntrimmedSurface write FUntrimmedSurface;
+    property ModelSpaceCurves: TList<TBaseEntity> read FModelSpaceCurves;
+    property OrientationFlags: TList<Integer> read FOrientationFlags;
+    property APSCurves: TList<TList<TBaseEntity>> read FAPSCurves;
+  end;
+  {$ENDREGION}
+
   {$REGION '142'}
   {参数曲面上的曲线相当于将CurveB投影到Surface上，需要曲线位于面的定义域，
   CurveC是投影结果}
@@ -180,6 +203,23 @@ type
     property CurveB: TBaseEntity read FCurveB write FCurveB;
     property CurveC: TBaseEntity read FCurveC write FCurveC;
     property PreRepInSendingSys: Integer read FPreRepInSendingSys write FPreRepInSendingSys;
+  end;
+  {$ENDREGION}
+
+  {$REGION '143'}
+  {The Bounded Surface Entity (Type 143) is used to represent trimmed surfaces.}
+  TBoundedSurfaceEntity = class(TBaseEntity)
+  private
+    FSurfaceType: Integer;
+    FUntrimmedSurface: TBaseEntity;
+    FBoundaries: TList<TBoundaryEntity>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    property SurfaceType: Integer read FSurfaceType write FSurfaceType;
+    property UntrimmedSurface: TBaseEntity read FUntrimmedSurface write FUntrimmedSurface;
+    property Boundaries: TList<TBoundaryEntity> read FBoundaries;
   end;
   {$ENDREGION}
 
@@ -211,6 +251,12 @@ type
     property Green: Double read FGreen write FGreen;
     property Blue: Double read FBlue write FBlue;
     property ColorName: string read FColorName write FColorName;
+  end;
+  {$ENDREGION}
+
+  {$REGION '406 - 仅定义未实现'}
+  TPropertyEntity = class(TBaseEntity)
+
   end;
   {$ENDREGION}
 
@@ -300,6 +346,43 @@ begin
   for I := 1 to index - 1 do
     Result := Result div 100;
   Result := Result mod 100;
+end;
+
+{ TBoundaryEntity }
+
+constructor TBoundaryEntity.Create;
+begin
+  FUntrimmedSurface := nil;
+  FModelSpaceCurves := TList<TBaseEntity>.Create;
+  FAPSCurves := TList<TList<TBaseEntity>>.Create;
+  FOrientationFlags := TList<Integer>.Create;
+end;
+
+destructor TBoundaryEntity.Destroy;
+var
+  I: Integer;
+begin
+  FOrientationFlags.Free;
+  FModelSpaceCurves.Free;
+  for I := 0 to FAPSCurves.Count - 1 do
+    FAPSCurves[I].Free;
+  FAPSCurves.Free;
+  inherited;
+end;
+
+{ TBoundedSurfaceEntity }
+
+constructor TBoundedSurfaceEntity.Create;
+begin
+  FUntrimmedSurface := nil;
+  FBoundaries := TList<TBoundaryEntity>.Create;
+end;
+
+destructor TBoundedSurfaceEntity.Destroy;
+begin
+  FBoundaries.Free;
+
+  inherited;
 end;
 
 end.
